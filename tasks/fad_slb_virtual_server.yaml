@@ -1,0 +1,361 @@
+---
+
+# Gather existing entries facts by using HTTP GET Request against the
+# FAD SLB HTTP Content Routing endpoint, and then register the result into the
+# 'fad_slb_virtual_server_get_results' var. Failed when the HTTP return code
+# is anything other than 200 or 302.
+- name: Gather FAD SLB Virtual Server facts for create task.
+  ansible.builtin.uri:
+    method: GET
+    url: "{{ fad_api_endpoint.slb_virtual_server }}"
+    body_format: "{{ fad_api_uri_params.body_format }}"
+    validate_certs: "{{ fad_api_uri_params.validate_certs }}"
+    return_content: "{{ fad_api_uri_params.return_content }}"
+    status_code: "{{ fad_api_uri_params.status_code }}"
+    headers: "{{ fad_api_header }}"
+  register: virtual_server_gather_results
+  failed_when: "virtual_server_gather_results.status not in [200, 302]"
+  tags: [get]
+
+# Will print out the value of the collected facts registered from the
+# previous task.
+- name: Debug out FAD SLB Virtual Server gathered facts.
+  ansible.builtin.debug:
+    msg: "{{ virtual_server_gather_results.json.payload }}"
+  tags: [debug]
+
+# This task will check if our desired entries in our vars already exist or not
+# in the previously gathered fact. If yes, then that entry will be skipped.
+# If not exist, that entry will be created.
+- name: Add FAD SLB Virtual Server entry if not exist.
+  vars:
+    existing_virtual_servers: "{{ virtual_server_gather_results.json.payload | json_query('[].mkey') }}"
+  ansible.builtin.uri:
+    method: POST
+    url: "{{ fad_api_endpoint.slb_virtual_server }}"
+    body_format: "{{ fad_api_uri_params.body_format }}"
+    validate_certs: "{{ fad_api_uri_params.validate_certs }}"
+    return_content: "{{ fad_api_uri_params.return_content }}"
+    status_code: "{{ fad_api_uri_params.status_code }}"
+    headers: "{{ fad_api_header }}"
+    body: >
+      {
+        "mkey": "{{ virtual_server.name | string }}",
+        "addr-type": "{{ virtual_server.addr_type | default('ipv4') | string }}",
+        "address": "{{ virtual_server.address | string }}",
+        "address6": "{{ virtual_server.address6 | default('::') | string }}",
+        "adfs-published-service": "{{ virtual_server.adfs_published_service | default('') | string }}",
+        "alone": "{{ virtual_server.alone | default('enable') | string }}",
+        "auth_policy": "{{ virtual_server.auth_policy | default('') | string }}",
+        "av-profile": "{{ virtual_server.av_profile | default('') | string }}",
+        "azure-lb-backend": "{{ virtual_server.azue_lb_backend | default('') | string }}",
+        "captcha-profile": "{{ virtual_server.captcha_profile | default('LB_CAPTCHA_PROFILE_DEFAULT') | string }}",
+        "client_ssl_profile": "{{ virtual_server.client_ssl_profile | default('') | string }}",
+        "clone-pool": "{{ virtual_server.clone_pool | default('') | string }}",
+        "clone-traffic-type": "{{ virtual_server.clone_traffic_type | default('both-sides') | string }}",
+        "comments": "{{ virtual_server.comments | default('') | string }}",
+        "connection-limit": "{{ virtual_server.connection_limit | default('0') | string }}",
+        "connection-pool": "{{ virtual_server.connection_pool | default('') | string }}",
+        "connection-rate-limit": "{{ virtual_server.connection_rate_limit | default('0') | string }}",
+        "content-rewriting": "{{ virtual_server.content_rewriting | default('disable') | string }}",
+        "content-rewriting-list": "{{ virtual_server.content_rewriting_list | default('') | string }}",
+        "content-routing": "{{ virtual_server.content_routing | default('disable') | string }}",
+        "content-routing-list": "{{ virtual_server.content_routing_list | join(' ') + ' ' | default('') | string }}",
+        "domain-name": "{{ virtual_server.domain_name | default('') | string }}",
+        "dos_profile": "{{ virtual_server.dos_profile | default('') | string }}",
+        "error-msg": "{{ virtual_server.error_msg | default('Loadbalancer return server unavailable.') | string }}",
+        "error-page": "{{ virtual_server.error_page | default('') | string }}",
+        "fortiview": "{{ virtual_server.fortiview | default('enable') | string }}",
+        "host-name": "{{ virtual_server.host_name | default('') | string }}",
+        "http2https": "{{ virtual_server.http2https | default('disable') | string }}",
+        "http2https-port": "{{ virtual_server.http2https_port | default('80 ') | string }}",
+        "interface": "{{ virtual_server.interface | string }}",
+        "ips_profile": "{{ virtual_server.ips_profile | default('') | string }}",
+        "l2-exception-list": "{{ virtual_server.l2_exception_list | default('') | string }}",
+        "method": "{{ virtual_server.method | default('LB_METHOD_ROUND_ROBIN') | string }}",
+        "one-click-gslb-server": "{{ virtual_server.one_click_gslb_server | default('disable') | string }}",
+        "packet-fwd-method": "{{ virtual_server.packet_fwd_method | default('NAT') | string }}",
+        "pagespeed": "{{ virtual_server.pagespeed | default('') | string }}",
+        "persistence": "{{ virtual_server.persistence | default('') | string }}",
+        "pool": "{{ virtual_server.pool | default('') | string }}",
+        "port": "{{ virtual_server.port | default([80, 443]) | join(' ') + ' ' | string }}",
+        "profile": "{{ virtual_server.profile | default('LB_PROF_HTTP') | string }}",
+        "protocol": "{{ virtual_server.protocol | default([0]) | join(' ') + ' ' | string }}",
+        "public-ip": "{{ virtual_server.public_ip | default('0.0.0.0') | string }}",
+        "public-ip-type": "{{ virtual_server.public_ip_type | default('ipv4') | string }}",
+        "public-ip6": "{{ virtual_server.public_ip6 | default('::') | string }}",
+        "schedule-list": "{{ virtual_server.schedule_list | default('disable') | string }}",
+        "schedule-pool-list": "{{ virtual_server.schedule_pool_list | default('') | string }}",
+        "scripting_flag": "{{ virtual_server.scripting_flag | default('disable') | string }}",
+        "scripting_list": "{{ virtual_server.scripting_list | default('') | string }}",
+        "source-pool-list": "{{ virtual_server.source_pool_list | default('') | string }}",
+        "ssl-mirror": "{{ virtual_server.ssl_mirror | default('disable') | string }}",
+        "ssl-mirror-intf": "{{ virtual_server.ssl_mirror_intf | default('') | string }}",
+        "status": "{{ virtual_server.status | default('enable') | string }}",
+        "stream_scripting_flag": "{{ virtual_server.stream_scripting_flag | default('disable') | string }}",
+        "stream_scripting_list": "{{ virtual_server.stream_scripting_list | default('') | string }}",
+        "traffic-group": "{{ virtual_server.traffic_group | default('default') | string }}",
+        "traffic-log": "{{ virtual_server.traffic_log | default('enable') | string }}",
+        "trans-rate-limit": "{{ virtual_server.trans_rate_limit | default('0') | string }}",
+        "type": "{{ virtual_server.type | default('l7-load-balance') | string }}",
+        "use-azure-lb-backend-ip": "{{ virtual_server.use_azure_lb_backend_ip | default('disable') | string }}",
+        "waf-profile": "{{ virtual_server.waf_profile | default('') | string }}",
+        "warmrate": "{{ virtual_server.warmrate | default('100') | string }}",
+        "warmup": "{{ virtual_server.warmup | default('0') | string }}",
+        "wccp": "{{ virtual_server.wccp | default('disable') | string }}",
+        "ztna_profile": "{{ virtual_server.ztna_profile | default('') | string }}"
+      }
+  register: virtual_server_create_results
+  loop: "{{ fad_slb_virtual_servers }}"
+  loop_control:
+    loop_var: virtual_server
+    label: "{{ virtual_server.name }}"
+  when: >
+    virtual_server.name not in existing_virtual_servers
+  changed_when: "virtual_server_create_results.json.payload == 0"
+  failed_when: "virtual_server_create_results.json.payload not in [0, -15]"
+  tags: [post]
+
+# Re-gather existing entries facts to prepare for update tasks.
+- name: Re-gather FAD SLB Virtual Server facts for update task.
+  ansible.builtin.uri:
+    method: GET
+    url: "{{ fad_api_endpoint.slb_virtual_server }}"
+    body_format: "{{ fad_api_uri_params.body_format }}"
+    validate_certs: "{{ fad_api_uri_params.validate_certs }}"
+    return_content: "{{ fad_api_uri_params.return_content }}"
+    status_code: "{{ fad_api_uri_params.status_code }}"
+    headers: "{{ fad_api_header }}"
+  register: virtual_server_regather_results
+  failed_when: "virtual_server_regather_results.status not in [200, 302]"
+  tags: [get]
+
+# Will print out the value of the re-gathered entries.
+- name: Debug out FAD SLB Virtual Server re-gathered facts.
+  ansible.builtin.debug:
+    msg: "{{ virtual_server_regather_results.json.payload }}"
+  tags: [debug]
+
+# For each loop, it will check if there's any entry that needs to be updated.
+# Those entry will be updated with the new data if there's a difference between
+# the gathered facts and our desired configuration in the vars.
+- name: Update FAD SLB Virtual Server entry if entry exists and needs update.
+  vars:
+    current_virtual_server_facts: "{{ virtual_server_regather_results.json.payload }}"
+    query: "[?mkey=='%s'].%s | [0]"
+  ansible.builtin.uri:
+    method: PUT
+    url: "{{ fad_api_endpoint.slb_virtual_server }}&mkey={{ virtual_server.name }}"
+    body_format: "{{ fad_api_uri_params.body_format }}"
+    validate_certs: "{{ fad_api_uri_params.validate_certs }}"
+    return_content: "{{ fad_api_uri_params.return_content }}"
+    status_code: "{{ fad_api_uri_params.status_code }}"
+    headers: "{{ fad_api_header }}"
+    body: >
+      {
+        "addr-type": "{{ virtual_server.addr_type | default('ipv4') | string }}",
+        "address": "{{ virtual_server.address | string }}",
+        "address6": "{{ virtual_server.address6 | default('::') | string }}",
+        "adfs-published-service": "{{ virtual_server.adfs_published_service | default('') | string }}",
+        "alone": "{{ virtual_server.alone | default('enable') | string }}",
+        "auth_policy": "{{ virtual_server.auth_policy | default('') | string }}",
+        "av-profile": "{{ virtual_server.av_profile | default('') | string }}",
+        "azure-lb-backend": "{{ virtual_server.azue_lb_backend | default('') | string }}",
+        "captcha-profile": "{{ virtual_server.captcha_profile | default('LB_CAPTCHA_PROFILE_DEFAULT') | string }}",
+        "client_ssl_profile": "{{ virtual_server.client_ssl_profile | default('') | string }}",
+        "clone-pool": "{{ virtual_server.clone_pool | default('') | string }}",
+        "clone-traffic-type": "{{ virtual_server.clone_traffic_type | default('both-sides') | string }}",
+        "comments": "{{ virtual_server.comments | default('') | string }}",
+        "connection-limit": "{{ virtual_server.connection_limit | default('0') | string }}",
+        "connection-pool": "{{ virtual_server.connection_pool | default('') | string }}",
+        "connection-rate-limit": "{{ virtual_server.connection_rate_limit | default('0') | string }}",
+        "content-rewriting": "{{ virtual_server.content_rewriting | default('disable') | string }}",
+        "content-rewriting-list": "{{ virtual_server.content_rewriting_list | default('') | string }}",
+        "content-routing": "{{ virtual_server.content_routing | default('disable') | string }}",
+        "content-routing-list": "{{ virtual_server.content_routing_list | join(' ') + ' ' | default('') | string }}",
+        "domain-name": "{{ virtual_server.domain_name | default('') | string }}",
+        "dos_profile": "{{ virtual_server.dos_profile | default('') | string }}",
+        "error-msg": "{{ virtual_server.error_msg | default('Loadbalancer return server unavailable.') | string }}",
+        "error-page": "{{ virtual_server.error_page | default('') | string }}",
+        "fortiview": "{{ virtual_server.fortiview | default('enable') | string }}",
+        "host-name": "{{ virtual_server.host_name | default('') | string }}",
+        "http2https": "{{ virtual_server.http2https | default('disable') | string }}",
+        "http2https-port": "{{ virtual_server.http2https_port | default('80 ') | string }}",
+        "interface": "{{ virtual_server.interface | string }}",
+        "ips_profile": "{{ virtual_server.ips_profile | default('') | string }}",
+        "l2-exception-list": "{{ virtual_server.l2_exception_list | default('') | string }}",
+        "method": "{{ virtual_server.method | default('LB_METHOD_ROUND_ROBIN') | string }}",
+        "one-click-gslb-server": "{{ virtual_server.one_click_gslb_server | default('disable') | string }}",
+        "packet-fwd-method": "{{ virtual_server.packet_fwd_method | default('NAT') | string }}",
+        "pagespeed": "{{ virtual_server.pagespeed | default('') | string }}",
+        "persistence": "{{ virtual_server.persistence | default('') | string }}",
+        "pool": "{{ virtual_server.pool | default('') | string }}",
+        "port": "{{ virtual_server.port | default([80, 443]) | join(' ') + ' ' | string }}",
+        "profile": "{{ virtual_server.profile | default('LB_PROF_HTTP') | string }}",
+        "protocol": "{{ virtual_server.protocol | default([0]) | join(' ') + ' ' | string }}",
+        "public-ip": "{{ virtual_server.public_ip | default('0.0.0.0') | string }}",
+        "public-ip-type": "{{ virtual_server.public_ip_type | default('ipv4') | string }}",
+        "public-ip6": "{{ virtual_server.public_ip6 | default('::') | string }}",
+        "schedule-list": "{{ virtual_server.schedule_list | default('disable') | string }}",
+        "schedule-pool-list": "{{ virtual_server.schedule_pool_list | default('') | string }}",
+        "scripting_flag": "{{ virtual_server.scripting_flag | default('disable') | string }}",
+        "scripting_list": "{{ virtual_server.scripting_list | default('') | string }}",
+        "source-pool-list": "{{ virtual_server.source_pool_list | default('') | string }}",
+        "ssl-mirror": "{{ virtual_server.ssl_mirror | default('disable') | string }}",
+        "ssl-mirror-intf": "{{ virtual_server.ssl_mirror_intf | default('') | string }}",
+        "status": "{{ virtual_server.status | default('enable') | string }}",
+        "stream_scripting_flag": "{{ virtual_server.stream_scripting_flag | default('disable') | string }}",
+        "stream_scripting_list": "{{ virtual_server.stream_scripting_list | default('') | string }}",
+        "traffic-group": "{{ virtual_server.traffic_group | default('default') | string }}",
+        "traffic-log": "{{ virtual_server.traffic_log | default('enable') | string }}",
+        "trans-rate-limit": "{{ virtual_server.trans_rate_limit | default('0') | string }}",
+        "type": "{{ virtual_server.type | default('l7-load-balance') | string }}",
+        "use-azure-lb-backend-ip": "{{ virtual_server.use_azure_lb_backend_ip | default('disable') | string }}",
+        "waf-profile": "{{ virtual_server.waf_profile | default('') | string }}",
+        "warmrate": "{{ virtual_server.warmrate | default('100') | string }}",
+        "warmup": "{{ virtual_server.warmup | default('0') | string }}",
+        "wccp": "{{ virtual_server.wccp | default('disable') | string }}",
+        "ztna_profile": "{{ virtual_server.ztna_profile | default('') | string }}"
+      }
+  register: virtual_server_update_results
+  loop: "{{ fad_slb_virtual_servers }}"
+  loop_control:
+    loop_var: virtual_server
+    label: "{{ virtual_server.name }}"
+  when: >
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"addr-type\"')) !=
+      (virtual_server.addr_type | default('ipv4') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"address\"')) !=
+      (virtual_server.address | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"address6\"')) !=
+      (virtual_server.address6 | default('::') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"adfs-published-service\"')) !=
+      (virtual_server.adfs_published_service | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"alone\"')) !=
+      (virtual_server.alone | default('enable') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"auth_policy\"')) !=
+      (virtual_server.auth_policy | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"av-profile\"')) !=
+      (virtual_server.av_profile | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"azure-lb-backend\"')) !=
+      (virtual_server.azue_lb_backend | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"captcha-profile\"')) !=
+      (virtual_server.captcha_profile | default('LB_CAPTCHA_PROFILE_DEFAULT') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"client_ssl_profile\"')) !=
+      (virtual_server.client_ssl_profile | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"clone-pool\"')) !=
+      (virtual_server.clone_pool | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"clone-traffic-type\"')) !=
+      (virtual_server.clone_traffic_type | default('both-sides') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"comments\"')) !=
+      (virtual_server.comments | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"connection-limit\"')) !=
+      (virtual_server.connection_limit | default('0') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"connection-pool\"')) !=
+      (virtual_server.connection_pool | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"connection-rate-limit\"')) !=
+      (virtual_server.connection_rate_limit | default('0') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"content-rewriting\"')) !=
+      (virtual_server.content_rewriting | default('disable') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"content-rewriting-list\"')) !=
+      (virtual_server.content_rewriting_list | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"content-routing\"')) !=
+      (virtual_server.content_routing | default('disable') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"content-routing-list\"')) !=
+      (virtual_server.content_routing_list | join(' ') + ' ' | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"domain-name\"')) !=
+      (virtual_server.domain_name | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"dos_profile\"')) !=
+      (virtual_server.dos_profile | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"error-msg\"')) !=
+      (virtual_server.error_msg | default('Loadbalancer return server unavailable.') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"error-page\"')) !=
+      (virtual_server.error_page | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"fortiview\"')) !=
+      (virtual_server.fortiview | default('enable') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"host-name\"')) !=
+      (virtual_server.host_name | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"http2https\"')) !=
+      (virtual_server.http2https | default('disable') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"http2https-port\"')) !=
+      (virtual_server.http2https_port | default('80 ') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"interface\"')) !=
+      (virtual_server.interface | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"ips_profile\"')) !=
+      (virtual_server.ips_profile | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"l2-exception-list\"')) !=
+      (virtual_server.l2_exception_list | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"method\"')) !=
+      (virtual_server.method | default('LB_METHOD_ROUND_ROBIN') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"one-click-gslb-server\"')) !=
+      (virtual_server.one_click_gslb_server | default('disable') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"packet-fwd-method\"')) !=
+      (virtual_server.packet_fwd_method | default('NAT') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"pagespeed\"')) !=
+      (virtual_server.pagespeed | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"persistence\"')) !=
+      (virtual_server.persistence | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"pool\"')) !=
+      (virtual_server.pool | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"port\"')) !=
+      (virtual_server.port | default([80, 443]) | join(' ') + ' ' | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"profile\"')) !=
+      (virtual_server.profile | default('LB_PROF_HTTP') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"protocol\"')) !=
+      (virtual_server.protocol | default([0]) | join(' ') + ' ' | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"public-ip\"')) !=
+      (virtual_server.public_ip | default('0.0.0.0') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"public-ip-type\"')) !=
+      (virtual_server.public_ip_type | default('ipv4') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"public-ip6\"')) !=
+      (virtual_server.public_ip6 | default('::') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"schedule-list\"')) !=
+      (virtual_server.schedule_list | default('disable') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"schedule-pool-list\"')) !=
+      (virtual_server.schedule_pool_list | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"scripting_flag\"')) !=
+      (virtual_server.scripting_flag | default('disable') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"scripting_list\"')) !=
+      (virtual_server.scripting_list | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"source-pool-list\"')) !=
+      (virtual_server.source_pool_list | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"ssl-mirror\"')) !=
+      (virtual_server.ssl_mirror | default('disable') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"ssl-mirror-intf\"')) !=
+      (virtual_server.ssl_mirror_intf | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"status\"')) !=
+      (virtual_server.status | default('enable') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"stream_scripting_flag\"')) !=
+      (virtual_server.stream_scripting_flag | default('disable') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"stream_scripting_list\"')) !=
+      (virtual_server.stream_scripting_list | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"traffic-group\"')) !=
+      (virtual_server.traffic_group | default('default') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"traffic-log\"')) !=
+      (virtual_server.traffic_log | default('enable') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"trans-rate-limit\"')) !=
+      (virtual_server.trans_rate_limit | default('0') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"type\"')) !=
+      (virtual_server.type | default('l7-load-balance') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"use-azure-lb-backend-ip\"')) !=
+      (virtual_server.use_azure_lb_backend_ip | default('disable') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"waf-profile\"')) !=
+      (virtual_server.waf_profile | default('') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"warmrate\"')) !=
+      (virtual_server.warmrate | default('100') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"warmup\"')) !=
+      (virtual_server.warmup | default('0') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"wccp\"')) !=
+      (virtual_server.wccp | default('disable') | string)) or
+    (current_virtual_server_facts | json_query(query % (virtual_server.name, '\"ztna_profile\"')) !=
+      (virtual_server.ztna_profile | default('') | string))
+  changed_when: "virtual_server_update_results.json.payload == 0"
+  failed_when: "virtual_server_update_results.json.payload not in [0, -15]"
+  tags: [put]
+
+# Final re-gather and print out for debugging purpose, will be skipped if you skip 'debug' tag.
+- name: Debug out FAD SLB Virtual Server final value after update task.
+  ansible.builtin.debug:
+    msg: >
+      {{ (lookup('url', fad_api_endpoint.slb_virtual_server, validate_certs=false, split_lines=false, headers=fad_api_header) | from_json).get('payload') }}
+  tags: [debug, get]

@@ -1,0 +1,9 @@
+---
+
+# NOTE: before it run the imported SLB HTTP Content Routing task, it will run the dependency
+# role first, which is the fad_slb_content_routing role.
+
+# will invoke tasks inside the file named 'fad_slb_virtual_server.yaml'
+- name: Create/update SLB HTTP Content Routing entries.
+  tags: [fad_slb_virtual_server]
+  ansible.builtin.import_tasks: fad_slb_virtual_server.yaml
