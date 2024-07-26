@@ -1,8 +1,8 @@
-# ansible-role-fortiadc-slb-content-routing
+# ansible-role-fortiadc-slb-virtual-server
 
 ## Description
 
-Ansible role to create/update Fortinet's FortiADC SLB HTTP Content Routing entries using REST API.
+Ansible role to create/update Fortinet's FortiADC SLB Virtual Server entries using REST API.
 
 ## Usage
 
